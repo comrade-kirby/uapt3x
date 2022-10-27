@@ -1,0 +1,163 @@
+<div id="uapt-tabs" class="tabs">
+
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    var smtp_part_key = '{{product.metafields.uapt.smtp_part_key}}';
+    loadProductMetadata(smtp_part_key, '#uapt-tabs');
+  });
+</script>
+
+{% style %}
+.tabs {
+  display: flex;
+  flex-wrap: wrap; // make sure it wraps
+}
+.tabs label {
+  order: 1; // Put the labels first
+  display: block;
+  padding: 1rem 2rem;
+  margin-right: 0.2rem;
+  cursor: pointer;
+  background: {{ block.settings.inactive_tab_background_color }};
+  color: {{ block.settings.inactive_tab_text_color }};
+  font-weight: bold;
+  transition: background ease 0.2s;
+  border-bottom: 1px solid #dddddd;
+}
+.tabs .tab {
+  order: 99; // Put the tabs last
+  flex-grow: 1;
+  width: 100%;
+  display: none;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-top: none;
+}
+.tabs input[type="radio"] {
+  display: none;
+}
+.tabs input[type="radio"]:checked + label {
+  background: {{ block.settings.active_tab_background_color }};
+  border: 1px solid #dddddd;
+  border-bottom: none;
+  color: {{ block.settings.active_tab_text_color }};
+}
+.tabs input[type="radio"]:checked + label + .tab {
+  display: block;
+}
+
+@media (max-width: 45em) {
+  .tabs .tab,
+  .tabs label {
+    order: initial;
+  }
+  .tabs label {
+    width: 100%;
+    margin-right: 0;
+    margin-top: 0.2rem;
+  }
+}
+table.uaps {
+  border: 0px solid #FFFFFF;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+table.uaps td, table.uaps th {
+  border: 1px solid #FFFFFF;
+  padding: 3px 2px;
+}
+table.uaps tr:nth-child(even) {
+  background: {{ block.settings.table_alternating_row_color }};
+  color: {{ block.settings.table_alternating_row_text_color }};
+}
+table.uaps thead {
+  background: {{ block.settings.table_header_color }};
+  border-bottom: 5px solid #FFFFFF;
+}
+table.uaps thead th {
+  font-size: 17px;
+  font-weight: bold;
+  color: {{ block.settings.table_header_text_color }};
+  text-align: left;
+  border-left: 2px solid #FFFFFF;
+}
+table.uaps thead th:first-child {
+  border-left: none;
+}
+
+table.uaps tfoot td {
+  font-size: 14px;
+}
+
+{% endstyle %}
+
+{% schema %}
+{
+  "name": "Part Information Tabs",
+  "target": "section",
+  "templates": ["product"],
+  "settings": [
+    {
+      "type": "header",
+      "content": "General Design"
+    },
+    {
+      "label": "Active Tab Background Color",
+      "id": "active_tab_background_color",
+      "type": "color",
+      "default": "#FFFFFF"
+    },
+    {
+      "label": "Active Tab Text Color",
+      "id": "active_tab_text_color",
+      "type": "color",
+      "default": "#FFFFFF"
+    },
+    {
+      "label": "Inactive Tab Background Color",
+      "id": "inactive_tab_background_color",
+      "type": "color",
+      "default": "#F2F2F2"
+    },
+    {
+      "label": "Inactive Tab Text Color",
+      "id": "inactive_tab_text_color",
+      "type": "color",
+      "default": "#F2F2F2"
+    },
+    {
+      "type": "header",
+      "content": "Table Design"
+    },
+    {
+      "label": "Table Header Color",
+      "id": "table_header_color",
+      "type": "color",
+      "default": "#1f3158"
+    },
+    {
+      "label": "Table Header Text Color",
+      "id": "table_header_text_color",
+      "type": "color",
+      "default": "#FFFFFF"
+    },
+    {
+      "label": "Table Alternating Row Color",
+      "id": "table_alternating_row_color",
+      "type": "color",
+      "default": "#1f3158"
+    },
+    {
+      "label": "Table Alternating Row Text Color",
+      "id": "table_alternating_row_text_color",
+      "type": "color",
+      "default": "#000000"
+    }
+  ]
+}
+{% endschema %}

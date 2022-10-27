@@ -1,0 +1,92 @@
+<div class="container">
+  <div class="wrapper">
+    <div class="selector-box">
+      {% if block.settings.title != blank %}
+        <span>
+          {{ block.settings.title }}
+        </span>
+      {% endif %}
+      <div id="ymm-selector">
+        <button class="btn-ymm-selector-search" type="submit">Go</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% style %}
+<style>
+.container {position: relative;}
+.wrapper {display: grid;grid-template-columns: 100%;}
+.selector-box {background-color: {{ block.settings.background_color }} !important;color: #fff;padding: 1em;font-weight: bold;text-align: center; border-radius: 20px;}
+
+#ymm-selector {text-align:center; display:flex; color: #3f60b9; font-size: var(--font-size-body-small);}
+#ymm-selector select {margin:0; height:49px; padding:5px 19px 5px 19px !important; width:100%; font-weight: bold;}
+#ymm-selector select {border-top-left-radius:3px; border-bottom-left-radius:3px;}
+#ymm-selector { justify-content: center; align-items: center; display: flex; }
+#ymm-selector .btn-ymm-selector-search {min-width: fit-content; display:inline-block !important; width: 2em; padding:10px 25px 10px 25px; margin:0 10px 0 10px;background-color: {{ block.settings.search_button_color }};color:#ffffff; border:none; font-weight: bold; border-radius: 10px;}
+#ymm-selector .btn-ymm-selector-clear {min-width: fit-content; display:inline-block !important; height:49px; padding:5px 25px 5px 25px; margin:0; background-color: {{ block.settings.clear_button_color }}; font-size:var(--font-size-body-smallest); color:#ffffff; border-top-right-radius:3px;border-bottom-right-radius:3px; border:none;}
+
+.select2-selection__rendered {line-height: 35px !important;}
+.select2-container .select2-selection--single {height: 35px !important;}
+.select2-selection__arrow {height: 35px !important;}
+
+@media only screen and (max-width: 769px)
+{
+  #ymm-selector {display:block;}
+  #ymm-selector .option {width:100%;}
+  #ymm-selector .actions {display:flex;}
+  #ymm-selector .actions .btn-ymm-selector-search {width:400px;}
+  #ymm-selector .actions .btn-ymm-selector-clear {width:400px;}
+  #ymm-selector .option select {border-top-left-radius:0 !important; border-bottom-left-radius:0 !important;}
+  #ymm-selector .btn-ymm-selector-search { margin-top: 10px;}
+}
+</style>
+{% endstyle %}
+
+{% schema %}
+{
+  "name": "Year Make Model Selector",
+  "target": "section",
+  "stylesheet": "select2.min.css",
+  "javascript": "select2.min.js",
+  "templates": ["index", "search"],
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "label": "Title",
+      "id": "title",
+      "type": "text",
+      "default": "Select Your Vehicle Below"
+    },
+    {
+      "label": "Background Color",
+      "id": "background_color",
+      "type": "color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "Search Button"
+    },
+    {
+      "label": "Button Color",
+      "id": "search_button_color",
+      "type": "color",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "Clear Button"
+    },
+    {
+      "label": "Button Color",
+      "id": "clear_button_color",
+      "type": "color",
+      "default": "#000000"
+    }
+  ]
+}
+{% endschema %}

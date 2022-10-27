@@ -1,0 +1,28 @@
+<div id="uapt-pdp-fitment-banner" class="icon-box" style="display: grid;grid-template-columns: max-content 1fr;grid-gap: 5px;">
+  {% render 'icon-library', id: 'icon-validfit' %}
+  {% render 'icon-library', id: 'icon-danger' %}
+  <span id="pdp-fitment-message"></span>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) { 
+    var smtp_part_key = '{{ product.metafields.uapt.smtp_part_key }}';
+    updatePDPFitmentMessage(smtp_part_key, '#pdp-fitment-message', '.icon-validfit', '.icon-danger');
+  });
+</script>
+
+{% style %}
+<style>
+  .icon-box {display: grid;grid-template-columns: max-content 1fr;grid-gap: 5px;}
+  .icon-box span {text-align: left;margin: auto;}
+  .icon-danger {fill: red;}
+  .icon-validfit {fill: green;}
+</style>
+{% endstyle %}
+
+{% schema %}
+{
+  "name": "PDP Fitment Status Banner",
+  "target": "section",
+  "templates": ["product"]
+}
+{% endschema %}

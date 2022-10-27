@@ -1,0 +1,621 @@
+const SELECTED_YEAR_KEY_NAME = 'selected-year-key';
+const SELECTED_YEAR_VALUE_NAME = 'selected-year-value';
+const SELECTED_MAKE_KEY_NAME = `selected-make-key`;
+const SELECTED_MAKE_VALUE_NAME = `selected-make-value`;
+const SELECTED_MODEL_KEY_NAME = `selected-model-key`;
+const SELECTED_MODEL_VALUE_NAME = `selected-model-value`;
+const SELECTED_PRODUCT_KEY_NAME = `selected-product-key`;
+const SELECTED_PRODUCT_VALUE_NAME = `selected-product-value`;
+const SELECTED_ENGINE_KEY_NAME = `selected-engine-key`;
+const SELECTED_ENGINE_VALUE_NAME = `selected-engine-value`;
+
+const CURRENT_FITMENT_PART_KEYS = `current-fitment-part-keys`;
+const CURRENT_FITMENT_PART_DATA = `current-fitment-part-data`;
+
+console.debug(`Selected Year Name: ${SELECTED_YEAR_KEY_NAME}`);
+console.debug(`Selected Make Name: ${SELECTED_MAKE_KEY_NAME}`);
+console.debug(`Selected Model Name: ${SELECTED_MODEL_KEY_NAME}`);
+console.debug(`Selected Product Name: ${SELECTED_PRODUCT_KEY_NAME}`);
+console.debug(`Selected Engine Name: ${SELECTED_ENGINE_KEY_NAME}`);
+
+console.debug(`Selected Year: ${getStorageItem(SELECTED_YEAR_KEY_NAME)}`);
+console.debug(`Selected Make: ${getStorageItem(SELECTED_MAKE_KEY_NAME)}`);
+console.debug(`Selected Model: ${getStorageItem(SELECTED_MODEL_KEY_NAME)}`);
+console.debug(`Selected Product: ${getStorageItem(SELECTED_PRODUCT_KEY_NAME)}`);
+console.debug(`Selected Engine: ${getStorageItem(SELECTED_ENGINE_KEY_NAME)}`);
+
+function getStorageItem(key) {
+  return localStorage.getItem(key);
+}
+function setStorageItem(key, value) {
+  localStorage.setItem(key, value);
+}
+function removeStorageItem(key, value) {
+  localStorage.removeItem(key);
+}
+function saveSelectedOptionKeyAndValue(target, key, value) {
+  console.debug(`saveSelectedOptionKeyAndValue Key: ${$(target).val()}`);
+  setStorageItem(key, $(target).val());
+
+  console.debug(`saveSelectedOptionKeyAndValue Value: ${$("option:selected", target).text()}`);
+  setStorageItem(value, $("option:selected", target).text());
+}
+
+function updatePDPFitmentMessage(smtpPartKey, pdpFitmentMessageElementId, successSelectorId, failureSelectorId) {
+  $(successSelectorId).hide();
+  $(failureSelectorId).hide();
+
+  if ( !userHasCurrentFitment() ) {
+    console.debug('No Valid Fitment found');
+  } else {
+    console.debug('Valid Fitment found');
+    $(pdpFitmentMessageElementId).text('Determining fitment for part....');
+    loadPartsForCurrentFitment(function() {
+      if (checkCurrentFitmentForPartKey(smtpPartKey)) {
+        $(pdpFitmentMessageElementId).text(`Part will fit your current fitment selection of ${UAPS.Current.fitmentLabel()}`);
+        $(successSelectorId).show();
+      } else {
+        $(pdpFitmentMessageElementId).text(`Part will NOT fit your current fitment selection of ${UAPS.Current.fitmentLabel()}`);
+        $(failureSelectorId).show();
+      }
+    });
+  }
+}
+
+function loadProductMetadata(smtpPartKey, tabsElementId, descriptionElementId, productSpecsElementId, buyersGuideElementId, interchangeElementId) {
+  var part_detail_full_url = constructAPIUrl('partdetailfull', smtpPartKey);
+
+  $.ajax({
+    url: part_detail_full_url,
+    dataType: UAPS.Config.api_data_type,
+    converters: {
+      "text xml": jQuery.parseXML
+    },
+    success: function(xml) {
+
+      var totalTabCount = 1;
+
+      var attributes = $(xml).find('partattributes');
+
+      attributes.sort(function(a, b){
+        var aNo = $(a).find('recno').text();
+        var bNo = $(b).find('recno').text();
+        return aNo < bNo ? -1 : aNo == bNo ? 0: +1
+      });
+
+      var product_specifications_content = '<table class="uaps"><thead><th>Name</th><th>Value</th></thead><tbody>';
+      var description_content = '';
+
+      attributes.each(function(){
+        if ( $(this).find('attribute').text().toLowerCase() == 'features and benefits' || $(this).find('attribute').text().toLowerCase() == 'product description' || $(this).find('attribute').text().toLowerCase() == 'brand description') {
+          description_content += '<p>' + $(this).find('value').text() + '</p>';
+        } else {
+          product_specifications_content += '<tr>';
+          product_specifications_content += '<td>' + $(this).find('attribute').text() + '</td>';
+          product_specifications_content += '<td>' + $(this).find('value').text() + '</td>';
+          product_specifications_content += '</tr>';
+        }
+      });
+
+      product_specifications_content += '</tbody></table>';
+
+      if (description_content != '' ) {
+        createTab(tabsElementId, 'description', totalTabCount, UAPS.PDP_Config.description_label, description_content);
+        totalTabCount++;
+      }
+
+      var buyers_guide_content = '<table class="uaps"><thead><th>Make</th><th>Model</th><th>Year</th><th>Engine</th></thead><tbody>';
+
+      var buyers_guide = $(xml).find('app');
+
+      buyers_guide.each(function(){
+        buyers_guide_content += '<tr>';
+
+        buyers_guide_content += '<td>' + $(this).find('make').text() + '</td>';
+        buyers_guide_content += '<td>' + $(this).find('model').text() + '</td>';
+        buyers_guide_content += '<td>' + $(this).find('year').text() + '</td>';
+        buyers_guide_content += '<td>' + $(this).find('engine').text() + '</td>';
+
+        buyers_guide_content += '</tr>';
+      });
+
+      buyers_guide_content += '</tbody></table>';
+
+      if (UAPS.PDP_Config.tab_sort_order = 0) {
+        createTab(tabsElementId, 'product-specs', totalTabCount, UAPS.PDP_Config.product_specs_label, product_specifications_content);
+        totalTabCount++;
+        createTab(tabsElementId, 'buyers-guide', totalTabCount, UAPS.PDP_Config.buyers_guide_label, buyers_guide_content);
+        totalTabCount++;
+      } else {
+        createTab(tabsElementId, 'buyers-guide', totalTabCount, UAPS.PDP_Config.buyers_guide_label, buyers_guide_content);
+        totalTabCount++;
+        createTab(tabsElementId, 'product-specs', totalTabCount, UAPS.PDP_Config.product_specs_label, product_specifications_content);
+        totalTabCount++;
+      }
+
+      if (UAPS.PDP_Config.include_interchange_part_numbers) {
+        var interchange_content = '<table class="uaps"><thead><th>Mfg</th><th>Part Number</th></thead><tbody>';
+
+        var interchanges = $(xml).find('interchange');
+
+        interchanges.each(function(){
+          interchange_content += '<tr>';
+
+          interchange_content += '<td>' + $(this).find('mfg').text() + '</td>';
+          interchange_content += '<td>' + $(this).find('comp_no').text() + '</td>';
+
+          interchange_content += '</tr>';
+        });
+
+        interchange_content += '</tbody></table>';
+       
+        createTab(tabsElementId, 'interchange-part-numbers', totalTabCount, UAPS.PDP_Config.interchange_part_numbers_label, interchange_content);
+      }
+    }
+  });
+}
+
+function createTab(tabsElementId, tabPrefix, tabCount, tabLabel, tabContent) {
+  if (tabCount == 1)
+    tab_input = `<input type="radio" name="tabs" id="tab${tabCount}" checked="checked">`;
+  else {
+    tab_input = `<input type="radio" name="tabs" id="tab${tabCount}">`;
+  }
+  tab_label = `<label id="uapt-pdp-${tabPrefix}-label" for="tab${tabCount}">${tabLabel}</label>`;
+  tab_div_content = `<div id="uapt-pdp-${tabPrefix}" class="tab">`;
+  tab_div_content += tabContent;
+  tab_div_content += '</div>';
+
+  $(tabsElementId).append(tab_input).append(tab_label).append(tab_div_content);
+}
+
+function loadFitmentProductData(smtpPartKey, applicationElementId, locationElementId, commentElementId, brandElementId) {
+  console.debug(`SMTP Part Key: ${smtpPartKey}`);
+
+  if (UAPS.Current.fitmentPartData() == undefined || UAPS.Current.fitmentPartData()[smtpPartKey] == undefined ) {
+    $(applicationElementId).hide();
+    $(locationElementId).hide();
+    $(commentElementId).hide();
+    $(brandElementId).hide();
+  }
+
+  var currentFitmentData = UAPS.Current.fitmentPartData()[smtpPartKey];
+  console.debug(currentFitmentData);
+
+  if (currentFitmentData == null){
+    $(applicationElementId).hide()
+    $(locationElementId).hide()
+    $(commentElementId).hide()
+    $(brandElementId).hide()
+
+    return
+  }
+
+  currentFitmentData.application === "" ? $(applicationElementId).hide() : $(applicationElementId).append(`${currentFitmentData.application}`);
+  currentFitmentData.location === "" ? $(locationElementId).hide() : $(locationElementId).append(`${currentFitmentData.location}`);
+  currentFitmentData.comment === "" ? $(commentElementId).hide() : $(commentElementId).append(`${currentFitmentData.comment}`);
+  currentFitmentData.brand === "" ? $(brandElementId).hide() : $(brandElementId).append(`<b>${UAPS.Config.part_brand_label}</b>: ${currentFitmentData.brand}`);
+}
+
+function loadCurrentFitmentSelection(fitmentLabelElementId, fitmentSelectorId, noFitmentSelectorId) {
+  if (!userHasCurrentFitment()) {
+    $(fitmentSelectorId).hide() 
+    $(noFitmentSelectorId).show() 
+  } else {
+    $(fitmentSelectorId).show() 
+    $(noFitmentSelectorId).hide() 
+    $(fitmentLabelElementId).append(`${UAPS.Current.fitmentLabel()}`); 
+  }
+}
+
+UAPS.Current = { 
+  selectedYearValue: function () {
+    return getStorageItem(SELECTED_YEAR_VALUE_NAME);
+  },
+  selectedYearKey: function () {
+    return getStorageItem(SELECTED_YEAR_KEY_NAME);
+  },
+  selectedMakeValue: function () {
+    return getStorageItem(SELECTED_MAKE_VALUE_NAME);
+  },
+  selectedMakeKey: function () {
+    return getStorageItem(SELECTED_MAKE_KEY_NAME);
+  },
+  selectedModelValue: function () {
+    return getStorageItem(SELECTED_MODEL_VALUE_NAME);
+  },
+  selectedModelKey: function () {
+    return getStorageItem(SELECTED_MODEL_KEY_NAME);
+  },
+  selectedProductValue: function () {
+    return getStorageItem(SELECTED_PRODUCT_VALUE_NAME);
+  },
+  selectedProductKey: function () {
+    return getStorageItem(SELECTED_PRODUCT_KEY_NAME);
+  },
+  selectedEngineValue: function () {
+    return getStorageItem(SELECTED_ENGINE_VALUE_NAME);
+  },
+  selectedEngineKey: function () {
+    return getStorageItem(SELECTED_ENGINE_KEY_NAME);
+  },
+  fitmentLabel: function() {
+    if (userHasCurrentFitment()) {
+      return `${getStorageItem(SELECTED_YEAR_VALUE_NAME)} ${getStorageItem(SELECTED_MAKE_VALUE_NAME)} ${getStorageItem(SELECTED_MODEL_VALUE_NAME)}`;
+    } else {
+      return  'No Current Fitment';
+    }
+  },
+  fitmentPartData: function() {
+    return JSON.parse(getStorageItem(CURRENT_FITMENT_PART_DATA));
+  },
+  clearCurrentFitment: function clearCurrentFitment(event) {
+    resetSelectElement('#selected-year');
+    resetSelectElement('#selected-make');
+    resetSelectElement('#selected-model');
+    resetSelectElement('#selected-product');
+    resetSelectElement('#selected-engine');
+
+    removeStorageItem(SELECTED_YEAR_KEY_NAME);
+    removeStorageItem(SELECTED_MAKE_KEY_NAME);
+    removeStorageItem(SELECTED_MODEL_KEY_NAME);
+    removeStorageItem(SELECTED_PRODUCT_KEY_NAME);
+    removeStorageItem(SELECTED_ENGINE_KEY_NAME);
+    removeStorageItem(CURRENT_FITMENT_PART_KEYS);
+    removeStorageItem(CURRENT_FITMENT_PART_DATA);
+  }
+}
+
+function resetSelectElement(elementId) {
+  $(elementId).val(null).trigger('change');
+}
+
+function checkCurrentFitmentForPartKey(part_key) {
+  var currentFitmentPartData = UAPS.Current.fitmentPartData();
+  console.debug(`currentFitmentPartData: ${currentFitmentPartData}`);
+  return currentFitmentPartData.hasOwnProperty(part_key);
+}
+
+function userHasCurrentFitment() {
+  console.debug('userHasCurrentFitment');
+
+  if (getStorageItem(SELECTED_YEAR_KEY_NAME) == undefined) return false
+  if (getStorageItem(SELECTED_MAKE_KEY_NAME) == undefined) return false
+  if (getStorageItem(SELECTED_MODEL_KEY_NAME) == undefined) return false
+  if (UAPS.Config.part_type_enabled && getStorageItem(SELECTED_PRODUCT_KEY_NAME) == undefined) return false
+  if (UAPS.Config.engine_enabled && getStorageItem(SELECTED_ENGINE_KEY_NAME) == undefined) return false
+
+  return true
+}
+
+function constructAPIUrl(lookupType, smtpPartKey = null) {
+  var parts_lookup_url = `https://${UAPS.Config.database_url}?`
+
+  var lookup_params = {
+    lookup: lookupType,
+    id: `${UAPS.Config.license_key}`
+  }
+
+  if (getStorageItem(SELECTED_YEAR_KEY_NAME) != undefined) {
+    lookup_params['year'] = getStorageItem(SELECTED_YEAR_KEY_NAME);
+  }
+  if (getStorageItem(SELECTED_MAKE_KEY_NAME) != undefined) {
+    lookup_params['make'] = getStorageItem(SELECTED_MAKE_KEY_NAME) ;
+  }
+  if (getStorageItem(SELECTED_MODEL_KEY_NAME) != undefined) {
+    lookup_params['model'] = getStorageItem(SELECTED_MODEL_KEY_NAME) ;
+  }
+  if (UAPS.Config.part_type_enabled && getStorageItem(SELECTED_PRODUCT_KEY_NAME) != undefined) {
+    lookup_params['product'] = getStorageItem(SELECTED_PRODUCT_KEY_NAME) ;
+  }
+  if (UAPS.Config.engine_enabled && getStorageItem(SELECTED_ENGINE_KEY_NAME) != undefined) {
+    lookup_params['engine'] = getStorageItem(SELECTED_ENGINE_KEY_NAME);
+  }
+  if (smtpPartKey != null) {
+    lookup_params['part'] = smtpPartKey;
+  }
+  if (UAPS.Config.include_admin_flag) {
+    lookup_params['admin'] = 'Y';
+  }
+
+  parts_lookup_url += $.param(lookup_params);
+
+  console.debug(parts_lookup_url);
+
+  return parts_lookup_url;
+}
+
+function populateSelectList(selectList, id, text) {
+  var data = {
+    id: id,
+    text: text
+  };
+
+  var newOption = new Option(data.text, data.id, false, false);
+  selectList.append(newOption).trigger('change');
+}
+
+function loadAPIQuery(url, selectListId, placeholderText, responseXmlElement, onChangeCallback = null, initialPageLoad = false)  {
+  $.ajax({
+    url: url,
+    dataType: UAPS.Config.API_DATA_TYPE,
+    converters: {
+      "text xml": jQuery.parseXML
+    },
+    success: function(xml) {
+      // Clear Select List
+      var selectedList = $('#' + selectListId);
+      selectedList.children().remove();
+
+      all_options = [];
+      all_options.push({ id: '', text: ''});
+      $(xml).find(responseXmlElement).each(function(){
+        all_options.push({ id: $(this).find('id').text(), text: $(this).find('data').text()});
+      });
+
+      console.debug(all_options);
+
+      var selectedList = $(`#${selectListId}`);
+
+      selectedList.select2({
+        placeholder: placeholderText,
+        data: all_options
+      });
+
+      // Add change event handler
+      if ( onChangeCallback != null ) {
+        selectedList.off('change', onChangeCallback);
+        console.debug('Adding change event handler');
+        selectedList.on('change', onChangeCallback);
+      }
+
+      // Load up existing value if it exists
+      if (getStorageItem(`${selectListId}-key`) != null ) {
+        var selected_value = getStorageItem(`` + selectListId + '-key');
+        console.debug(selected_value);
+        console.debug(selectedList);
+
+        if ( initialPageLoad && $("#" + selectListId + " option[value='" + selected_value + "']").length > 0) {
+          console.debug(`Option found: ${selected_value}`);
+          $(selectedList).val(selected_value);
+        } else {
+          // Otherwise just reset the dropdown
+          console.debug('Resetting dropdown.');
+          $(selectedList).val('');
+        }
+        selectedList.trigger("change", [initialPageLoad]);
+      }
+    }
+  });
+}
+function engineSelected(event, initialPageLoad) {
+  console.debug('engineSelected');
+  saveSelectedOptionKeyAndValue(event.target, SELECTED_ENGINE_KEY_NAME, SELECTED_ENGINE_VALUE_NAME);
+}
+
+function productSelected(event, initialPageLoad) {
+  console.debug('productSelected');
+  saveSelectedOptionKeyAndValue(event.target, SELECTED_PRODUCT_KEY_NAME, SELECTED_PRODUCT_VALUE_NAME);
+  var engine_lookup_url = constructAPIUrl('engine');
+  loadAPIQuery(engine_lookup_url, 'selected-engine', UAPS.Config.engine_placeholder_text, 'engine', engineSelected, initialPageLoad);
+}
+
+function modelSelected(event, initialPageLoad) {
+  console.debug('modelSelected');
+  saveSelectedOptionKeyAndValue(event.target, SELECTED_MODEL_KEY_NAME, SELECTED_MODEL_VALUE_NAME);
+  var product_lookup_url = constructAPIUrl('parttype');
+  loadAPIQuery(product_lookup_url, 'selected-product', UAPS.Config.product_placeholder_text, 'parttype', productSelected, initialPageLoad);
+}
+
+function makeSelected(event, initialPageLoad) {
+  console.debug('makeSelected');
+  saveSelectedOptionKeyAndValue(event.target, SELECTED_MAKE_KEY_NAME, SELECTED_MAKE_VALUE_NAME);
+  var model_lookup_url = constructAPIUrl('model');
+  loadAPIQuery(model_lookup_url, 'selected-model', UAPS.Config.model_placeholder_text, 'model', modelSelected, initialPageLoad);
+}
+
+function yearSelected(event, initialPageLoad) {
+  console.debug(`Initial page load: ${initialPageLoad}`);
+  console.debug('yearSelected');
+  saveSelectedOptionKeyAndValue(event.target, SELECTED_YEAR_KEY_NAME, SELECTED_YEAR_VALUE_NAME);
+  var make_lookup_url = constructAPIUrl('make');
+  loadAPIQuery(make_lookup_url, 'selected-make', UAPS.Config.make_placeholder_text, 'make', makeSelected, initialPageLoad);
+}
+function setupDefaultSelectLists(parent, id, placeholderDefault) {
+  var selectList = $('<select>').insertBefore(parent);
+  selectList.attr("id", id);
+  selectList.attr("class", "option");
+  $('#' + id).select2({
+    placeholder: placeholderDefault
+  });
+}
+
+function loadPartsForCurrentFitment(successCallback) {
+  if ( UAPS.Current.fitmentPartData == undefined ) {
+    var partsLookupUrl = constructAPIUrl('parts');
+
+    $.ajax({
+      url: partsLookupUrl,
+      dataType: UAPS.Config.API_DATA_TYPE,
+      converters: {
+        "text xml": jQuery.parseXML
+      },
+      success: function(xml) {
+        console.debug(xml);
+
+        var matchingFitmentPartData = {};
+        $(xml).find('partsdata').each(function(){
+          part_key = $(this).find('part_key').text();
+          console.debug(part_key);
+
+          matchingFitmentPartData[part_key] = { 
+            'location': $(this).find('location').text(),
+            'application': $(this).find('application').text(),
+            'comment': $(this).find('comment').text(),
+            'brand': $(this).find('brand').text()
+          }
+          console.debug(matchingFitmentPartData[part_key]);
+        });
+        setStorageItem(CURRENT_FITMENT_PART_DATA, JSON.stringify(matchingFitmentPartData));
+        successCallback();
+      }
+    });
+  } else {
+    successCallback();
+  }
+}
+
+function search(event) {
+  // TODO: combine with loadPartsForCurrentFitment?
+  var partsLookupUrl = constructAPIUrl('parts');
+  console.debug(partsLookupUrl);
+
+  $.ajax({
+    url: partsLookupUrl,
+    dataType: UAPS.Config.API_DATA_TYPE,
+    converters: {
+      "text xml": jQuery.parseXML
+    },
+    success: function(xml) {
+      var search_parts = '';
+      var first = true;
+
+      var matchingFitmentPartData = {};
+
+      $(xml).find('partsdata').each(function(){
+        part_key = $(this).find('part_key').text();
+        console.debug(part_key);
+
+        matchingFitmentPartData[part_key] = { 
+          'location': $(this).find('location').text(),
+          'application': $(this).find('application').text(),
+          'comment': $(this).find('comment').text(),
+          'brand': $(this).find('brand').text()
+        }
+        console.debug(`${part_key}: ${matchingFitmentPartData[part_key]}`);
+
+        if (!first) {
+          search_parts += ' OR ';
+        }
+        first = false;
+        part_no = $(this).find('part_no').text();
+        search_parts += `"${part_no}"`; 
+      });
+
+      console.debug(`Resulting fitment part data to store: ${matchingFitmentPartData}`);
+      setStorageItem(CURRENT_FITMENT_PART_DATA, JSON.stringify(matchingFitmentPartData));
+      window.location.href = '/search?type=product&source=fitment_search&q=' + encodeURIComponent(search_parts);
+    }
+  });
+}
+
+function basicYearMakeModelProductEngineSelector(targetDiv) {
+  var myDiv = document.getElementById(targetDiv);
+
+  if (myDiv == null) {
+    return
+  }
+  var btn_search;
+  if ($('.btn-ymm-selector-search').length == 0) {
+    btn_search = document.createElement("button");
+    btn_search.setAttribute('class', 'btn-ymm-selector-search');
+    btn_search.setAttribute('type', 'submit');
+    btn_search.textContent = 'Go';
+    myDiv.append(btn_search);
+  } else {
+    btn_search = $('.btn-ymm-selector-search')[0];
+  }
+
+  $('.btn-ymm-selector-search').on('click', function(){
+    search();
+  });
+
+  setupDefaultSelectLists(btn_search, 'selected-year', UAPS.Config.year_placeholder_text);
+  setupDefaultSelectLists(btn_search, 'selected-make', UAPS.Config.make_placeholder_text);
+  setupDefaultSelectLists(btn_search, 'selected-model', UAPS.Config.model_placeholder_text);
+
+  if ( UAPS.Config.part_type_enabled ) {
+    setupDefaultSelectLists(btn_search, 'selected-product', UAPS.Config.product_placeholder_text);
+  }
+  if ( UAPS.Config.engine_enabled ) {
+    setupDefaultSelectLists(btn_search, 'selected-engine', UAPS.Config.engine_placeholder_text);
+  }
+
+  if ( UAPS.Config.clear_button_enabled ) {
+    var btn_clear = document.createElement("button");
+    btn_clear.setAttribute('class', 'btn-ymm-selector-clear');
+    btn_clear.setAttribute('type', 'submit');
+    btn_clear.textContent = 'Clear';
+    myDiv.append(btn_clear);
+    $('#' + targetDiv).on('click', '.btn-ymm-selector-clear', function(){
+      UAPS.Current.clearCurrentFitment();
+    });
+  }
+
+  $("input[name='q']").each(function() { 
+    $(this).val('');
+  })
+
+  var year_lookup_url = constructAPIUrl('year');
+  console.debug(year_lookup_url);
+
+  $.ajax({
+    url: year_lookup_url,
+    dataType: UAPS.Config.API_DATA_TYPE,
+    converters: {
+      "text xml": jQuery.parseXML
+    },
+    success: function(xml) {
+      all_years = [];
+      all_years.push({ id: '', text: ''});
+      $(xml).find("year").each(function(){
+        var year_id = $(this).find('id').text();
+        all_years.push({ id: year_id, text: year_id });
+      });
+
+      var selectedYearList = $('#selected-year');
+      selectedYearList.select2({
+        placeholder: UAPS.Config.year_placeholder_text,
+        data: all_years
+      });
+
+      selectedYearList.on("change", yearSelected);
+      if (getStorageItem(SELECTED_YEAR_KEY_NAME) != null ) {
+        $("#selected-year").val(getStorageItem(SELECTED_YEAR_KEY_NAME));
+        $("#selected-year").trigger("change", [true]);
+      }
+    }
+  });
+};
+
+var vinLookupResultsDiv;
+
+function vinSearch() {
+  var vinSearchText = $('#vinLookupInput').val();
+
+  var vinLookupUrl = `https://www.showmethepartsdb2.com/bin/ShowMeConnect.exe?lookup=vinappparts&vin=${vinSearchText}&id=69876V2_WEB`
+
+  $.ajax({
+    url: vinLookupUrl,
+    dataType: UAPS.Config.API_DATA_TYPE,
+    converters: {
+      "text xml": jQuery.parseXML
+    },
+    success: function(xml) {
+      var engine = $(xml).find("app").find("app_data").find("engine").text();
+      $(`#${vinLookupResultsDiv}`).append(`Engine: ${engine}`);
+    }
+  });
+}
+
+function vinLookup(targetDiv, resultsDiv) {
+  var myDiv = $(`#${targetDiv}`);
+  $('<input/>').attr({ type: 'text', id: 'vinLookupInput', name: 'vinLookupInput'}).appendTo(myDiv);
+  $('<button/>').attr({ type: 'button', id: 'vinLookupButton', name: 'vinLookupButton'}).html('Search').click(vinSearch).appendTo(myDiv);
+
+  vinLookupResultsDiv = resultsDiv;
+}
+
+$( document ).ready(function() {
+  basicYearMakeModelProductEngineSelector('ymm-selector');
+});

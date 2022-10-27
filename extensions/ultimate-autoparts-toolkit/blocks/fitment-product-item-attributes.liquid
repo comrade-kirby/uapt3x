@@ -1,0 +1,27 @@
+{% assign smtp_part_key =  product.metafields.uapt.smtp_part_key %}
+
+<div id="uapt-fitment-product-grid-item-data" class="productitem--fitment_details">
+  <div id='fitment-brand-{{ smtp_part_key }}'></div>
+  <div id='fitment-application-{{ smtp_part_key }}'><b>Application:</b> </div>
+  <div id='fitment-location-{{ smtp_part_key }}'><b>Location:</b> </div>
+  <div id='fitment-comment-{{ smtp_part_key }}'><b>Comment:</b> </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    loadFitmentProductData('{{ smtp_part_key }}',
+      '#fitment-application-{{ smtp_part_key }}',
+      '#fitment-location-{{ smtp_part_key }}',
+      '#fitment-comment-{{ smtp_part_key }}',
+      '#fitment-brand-{{ smtp_part_key }}',
+    );
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Product Item Attributes",
+  "target": "section",
+  "templates": ["product"]
+}
+{% endschema %}

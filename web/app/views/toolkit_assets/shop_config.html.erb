@@ -1,0 +1,25 @@
+var UAPS = {
+    Config: {
+        database_url: '<%= @shop_config.database_url %>',
+        license_key: '<%= @shop_config.license_key %>',
+        part_type_enabled: <%= @shop_config.part_type_enabled %>,
+        engine_enabled: <%= @shop_config.engine_enabled %>,
+        clear_button_enabled: <%= @shop_config.clear_button_enabled %>,
+        api_data_type: 'xml',
+        year_placeholder_text: '-Year-',
+        make_placeholder_text: '-Make-',
+        model_placeholder_text: '-Model-',
+        product_placeholder_text: '-Part Type-',
+        engine_placeholder_text: '-Engine-',
+        part_brand_label: '<%= @shop_config.part_brand_label %>',
+        include_admin_flag: <%= @shop_config.include_admin_flag %>
+    },
+    PDP_Config: {
+        description_label: '<%= @shop_config.pdp_description_label %>',
+        product_specs_label: '<%= @shop_config.pdp_product_specs_label %>',
+        buyers_guide_label: '<%= @shop_config.pdp_buyers_guide_label %>',
+        interchange_part_numbers_label: '<%= @shop_config.pdp_interchange_part_numbers_label %>',
+        include_interchange_part_numbers: <%= @shop_config.include_interchange_part_numbers %>,
+        tab_sort_order: '<%= @shop_config.tab_sort_order %>'
+    }
+}
